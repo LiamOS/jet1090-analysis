@@ -108,10 +108,10 @@ def process_line(line):
                 # Check specifically for latitude and longitude
                 if param == 'latitude' or param == 'longitude':
                     has_lat_lon = True
+                    icao_info[icao_code]['has_lat_lon'] = has_lat_lon # do in here so we don't overwrite True with False
 
         # Update the last seen time for this ICAO code
         icao_info[icao_code]['last_seen'] = current_time
-        icao_info[icao_code]['has_lat_lon'] = has_lat_lon
 
     except json.JSONDecodeError as e:
         print(f"Warning: Failed to parse JSON line. Error: {e}")
