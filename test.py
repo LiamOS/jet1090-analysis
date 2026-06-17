@@ -7,8 +7,8 @@ import threading
 import numpy as np
 
 # For matplotlib plot
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from matplotlib.projections.polar import PolarAxes  # Import for polar plots
 
 # Radius of Earth in km
 R_EARTH = 6371
@@ -22,42 +22,59 @@ icao_info = {}
 class MatplotlibWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
+        #self.figure = plt.figure(edgecolor='black',facecolor='black')#subplot_kw={'projection': 'polar'})
+        self.figure, self.axes = plt.subplots(figsize=(8,8), subplot_kw={'projection': 'polar'})
+        self.canvas = self.figure.canvas
 
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
         self.setLayout(layout)
 
         # Set up the plot
-        self.axes = self.figure.add_subplot(111)
-        self.axes.set_xlim([0, 360])
-        self.axes.set_ylim([0, 90])
-        self.axes.set_xlabel('Bearing')
-        self.axes.set_ylabel('Elevation')
+        #self.axes = self.figure.add_subplot(111, projection='polar')
+        self.axes.set_rlim(bottom=90, top=0)
+        self.axes.set_theta_zero_location("N")
+        self.axes.set_theta_direction(-1)
+        self.axes.set_thetamax(360)
+        self.axes.set_rticks([15,30,45,60,75])
+        self.axes.grid(True)
+        #self.axes.set_xlim([0, 360])
+        #self.axes.set_ylim([0, 90])
+        #self.axes.set_rlabel('Bearing')
+        #self.axes.set_thetalabel('Elevation')
 
     def update_plot(self):
         """Clear the plot and draw new points"""
         self.axes.clear()
-        self.axes.set_xlim([0, 360])
-        self.axes.set_ylim([0, 90])
-        self.axes.set_xlabel('Bearing')
-        self.axes.set_ylabel('Elevation')
+        #self.axes.set_rmax(90)
+        #self.axes.set_rmin(0)
+        self.axes.set_rlim(bottom=90, top=0)
+        self.axes.set_theta_zero_location("N")
+        self.axes.set_theta_direction(-1)
+        self.axes.set_thetamax(360)
+        self.axes.set_rticks([15,30,45,60,75])
+        self.axes.grid(True)
+        #self.axes.set_xlim([0, 360])
+        #self.axes.set_ylim([0, 90])
+        #self.axes.set_xlabel('Bearing')
+        #self.axes.set_ylabel('Elevation')
 
         # Plot data for each ICAO code that has lat/lon
         for icao_code, info in icao_info.items():
             if info['has_lat_lon']:
-                if len(info['bearing']) > 0 and len(info['elevation']) > 0:
+                if len(info['bearing_rad']) > 0 and len(info['elevation']) > 0:
                     self.axes.scatter(
-                        [info['bearing'][-1]],
-                        [info['elevation'][-1]],
+                        info['bearing_rad'][-1],
+                        info['elevation'][-1],
                         label=icao_code
                     )
+                    self.axes.plot(info['bearing_rad'], info['elevation'], alpha=0.5, label=icao_code)
+        plt.draw()
 
         # Only show legend for the last point to avoid clutter
-        handles, labels = self.axes.get_legend_handles_labels()
-        unique_labels = dict(zip(labels, handles))
-        self.axes.legend(unique_labels.values(), unique_labels.keys())
+        #handles, labels = self.axes.get_legend_handles_labels()
+        #unique_labels = dict(zip(labels, handles))
+        #self.axes.legend(unique_labels.values(), unique_labels.keys())
 
         self.canvas.draw()
 
@@ -68,7 +85,7 @@ class IcaoInfoWindow(QWidget):
         # Create the main layout
         main_layout = QVBoxLayout(self)
         self.setWindowTitle("ADSB Tracks")
-        self.resize(1600,1000)
+        self.resize(1600,1200)
 
         # Table widget
         self.table_widget = QTableWidget()
@@ -187,6 +204,7 @@ def process_line(line):
                 'longitude': [],
                 'groundspeed': [],
                 'bearing': [],
+                'bearing_rad': [],
                 'elevation': [],
                 'distance': [],
                 'los': []
@@ -210,6 +228,7 @@ def process_line(line):
         if has_lat_lon:
             icao_info[icao_code]['distance'].append(R_EARTH*haversine(STATION_LAT, STATION_LON, icao_info[icao_code]['latitude'][-1], icao_info[icao_code]['longitude'][-1]))
             icao_info[icao_code]['bearing'].append(bearing(STATION_LAT, STATION_LON, icao_info[icao_code]['latitude'][-1], icao_info[icao_code]['longitude'][-1]))
+            icao_info[icao_code]['bearing_rad'].append((np.pi/180)*icao_info[icao_code]['bearing'][-1])
             icao_info[icao_code]['elevation'].append(elevation(icao_info[icao_code]['altitude'][-1],icao_info[icao_code]['distance'][-1]))
             icao_info[icao_code]['los'].append(lineofsight(STATION_LAT, STATION_LON, icao_info[icao_code]['latitude'][-1], icao_info[icao_code]['longitude'][-1],
 icao_info[icao_code]['altitude'][-1], icao_info[icao_code]['elevation'][-1]))
